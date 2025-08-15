@@ -7,16 +7,11 @@ import os
 import json
 from datetime import datetime
 
-# Page config
 st.set_page_config(page_title="Document Classification Results", page_icon="📊", layout="wide")
 
-# Get connection from environment
-# For testing, you can hardcode these values:
 RESULTS_DSN = os.environ.get("RESULTS_DSN", "")
 RUN_ID = os.environ.get("RUN_ID", "")
 
-# If RESULTS_DSN is empty, you can set a default for testing
-# Example: RESULTS_DSN = "postgresql+psycopg://user:password@localhost:5432/dbname"
 if not RESULTS_DSN:
     st.error("Please set the RESULTS_DSN environment variable with your database connection string")
     st.code("export RESULTS_DSN='postgresql+psycopg://username:password@host:port/database'")
@@ -31,7 +26,6 @@ def pg_dsn(dsn: str) -> str:
 def load_data(run_id=None):
     """Load classification data from database"""
     with psycopg.connect(pg_dsn(RESULTS_DSN), row_factory=dict_row) as conn:
-        # Get run info
         if run_id:
             run_query = """
                 SELECT run_id, dag_id, ts_started, ts_finished, status, 
@@ -41,7 +35,6 @@ def load_data(run_id=None):
             """
             run_info = conn.execute(run_query, (run_id,)).fetchone()
         else:
-            # Get most recent run
             run_query = """
                 SELECT run_id, dag_id, ts_started, ts_finished, status, 
                        model_version, data_snapshot_uri, preds_uri
@@ -54,7 +47,6 @@ def load_data(run_id=None):
         if not run_info:
             return None, None, None
         
-        # Get classifications for this run
         class_query = """
             SELECT doc_id, source_file, predicted_type, dated, 
                    needs_human_review, confidence_reasoning,
@@ -63,8 +55,7 @@ def load_data(run_id=None):
             WHERE run_id = %s
         """
         classifications = conn.execute(class_query, (run_info['run_id'],)).fetchall()
-        
-        # Get summary statistics
+
         stats_query = """
             SELECT predicted_type, 
                    COUNT(*) as count,
@@ -78,15 +69,12 @@ def load_data(run_id=None):
         
         return run_info, classifications, type_stats
 
-# Main app
 st.title("📊 Document Classification Results")
 
-# Check for database connection
 if not RESULTS_DSN:
     st.stop()
 
 try:
-    # Load data
     run_info, classifications, type_stats = load_data(RUN_ID)
 except Exception as e:
     st.error(f"Database connection failed: {e}")
@@ -97,7 +85,6 @@ if not run_info:
     st.error("No run data found. Please check the database connection and run ID.")
     st.stop()
 
-# Display run information
 st.header("Run Information")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -113,11 +100,9 @@ with col4:
     else:
         st.metric("Duration", "Running...")
 
-# Convert to DataFrame for easier manipulation
 if classifications:
     df = pd.DataFrame(classifications)
     
-    # Summary metrics
     st.header("Summary Metrics")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -129,27 +114,22 @@ if classifications:
         st.metric("Need Review", f"{review_count} ({review_count/len(df)*100:.1f}%)")
     with col4:
         st.metric("Auto-approved", len(df) - review_count)
-    
-    # Matplotlib visualizations
+
     st.header("Visualizations")
     
-    # Prepare data for charts
     types = [t['predicted_type'] for t in type_stats]
     counts = [t['count'] for t in type_stats]
     review_counts = [t['review_count'] for t in type_stats]
     
-    # Create two columns for charts
     col1, col2 = st.columns(2)
     
     with col1:
-        # Pie chart of document types
         fig1, ax1 = plt.subplots(figsize=(8, 6))
         colors = plt.cm.Set3(range(len(types)))
         wedges, texts, autotexts = ax1.pie(counts, labels=types, autopct='%1.1f%%', 
                                             colors=colors, startangle=90)
         ax1.set_title('Document Type Distribution')
-        
-        # Make percentage text more readable
+
         for autotext in autotexts:
             autotext.set_color('white')
             autotext.set_fontweight('bold')
@@ -157,7 +137,7 @@ if classifications:
         st.pyplot(fig1)
     
     with col2:
-        # Bar chart of document counts
+
         fig2, ax2 = plt.subplots(figsize=(8, 6))
         bars = ax2.bar(range(len(types)), counts, color='skyblue')
         ax2.set_xticks(range(len(types)))
@@ -166,8 +146,6 @@ if classifications:
         ax2.set_ylabel('Count')
         ax2.set_title('Documents by Type')
         ax2.grid(axis='y', alpha=0.3)
-        
-        # Add value labels on bars
         for bar in bars:
             height = bar.get_height()
             ax2.text(bar.get_x() + bar.get_width()/2., height,
@@ -176,7 +154,7 @@ if classifications:
         plt.tight_layout()
         st.pyplot(fig2)
     
-    # Review status comparison
+
     st.subheader("Review Status Analysis")
     
     fig3, ax3 = plt.subplots(figsize=(12, 6))
@@ -199,7 +177,6 @@ if classifications:
     ax3.legend()
     ax3.grid(axis='y', alpha=0.3)
     
-    # Add value labels on bars
     for bars in [bars1, bars2]:
         for bar in bars:
             height = bar.get_height()
@@ -210,10 +187,8 @@ if classifications:
     plt.tight_layout()
     st.pyplot(fig3)
     
-    # Detailed table
     st.header("Detailed Results")
     
-    # Add filters
     col1, col2, col3 = st.columns(3)
     with col1:
         type_filter = st.multiselect("Filter by Type", options=df['predicted_type'].unique())
@@ -233,10 +208,8 @@ if classifications:
     if search:
         filtered_df = filtered_df[filtered_df['source_file'].str.contains(search, case=False, na=False)]
     
-    # Display filtered data
     display_df = filtered_df[['doc_id', 'source_file', 'predicted_type', 'needs_human_review', 'confidence_reasoning']].copy()
     
-    # Truncate confidence_reasoning for display (it can be very long)
     display_df['confidence_reasoning'] = display_df['confidence_reasoning'].apply(
         lambda x: x[:200] + '...' if x and len(x) > 200 else x
     )
@@ -259,7 +232,6 @@ if classifications:
     
     st.caption(f"Showing {len(filtered_df)} of {len(df)} documents")
     
-    # Optional: Add expander to view full confidence reasoning
     if len(filtered_df) > 0:
         with st.expander("View Full Confidence Reasoning"):
             selected_doc = st.selectbox(
@@ -274,6 +246,5 @@ if classifications:
 else:
     st.warning("No classification data found for this run.")
 
-# Footer
 st.markdown("---")
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
