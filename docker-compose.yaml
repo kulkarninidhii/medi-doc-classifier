@@ -1,0 +1,118 @@
+version: "3.9"
+
+x-airflow-env: &airflow-env
+  AIRFLOW__CORE__EXECUTOR: LocalExecutor
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__FERNET_KEY: "Sq37p6t_-bSoMyUNx3fnuNXf5ZBOcHTQnFGmT_bqWbg="
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+  AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "20"
+  PYTHONOPTIMIZE: "1"
+  DOCKER_HOST: "unix:///var/run/docker.sock"
+
+services:
+  airflow-db:
+    image: postgres:15
+    container_name: airflow-db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+
+  results-db:
+    image: postgres:15
+    container_name: results-db
+    environment:
+      POSTGRES_USER: results
+      POSTGRES_PASSWORD: results
+      POSTGRES_DB: results
+    ports: ["5433:5432"]
+    volumes:
+      - results_db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+
+  airflow:
+    user: "0:0"
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    container_name: airflow
+    restart: unless-stopped
+    environment:
+      <<: *airflow-env
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      RESULTS_DSN: ${RESULTS_DSN}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PREFIX: ${S3_PREFIX}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL}
+      MODEL_NAME: ${MODEL_NAME}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PATH: "/home/airflow/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      DOCKER_HOST: "unix:///var/run/docker.sock"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - airflow_logs:/opt/airflow/logs
+      - exec:/home/airflow/.exec
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      results-db:
+        condition: service_started
+    command: >
+      bash -c "
+        set -e
+        airflow db init &&
+        airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin &&
+        airflow webserver --port 8080 --host 0.0.0.0 & 
+        airflow scheduler
+      "
+
+  docproc-image:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    image: docproc:latest
+    container_name: docproc-image
+    command: ["bash","-lc","python -V"]
+    environment: 
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+  streamlit-viz:
+    build:
+      context: ./streamlit
+      dockerfile: Dockerfile
+    container_name: streamlit-viz
+    restart: unless-stopped
+    environment:
+      RESULTS_DSN: ${RESULTS_DSN}
+      RUN_ID: ${RUN_ID:-}
+    ports:
+      - "8501:8501"
+    depends_on:
+      - results-db
+    volumes:
+      - exec:/home/streamlit/.exec:ro
+      - ./streamlit/visuals.py:/app/visuals.py:ro
+
+volumes:
+  airflow_db_data:
+  results_db_data:
+  airflow_logs:
+  exec:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/.exec   
