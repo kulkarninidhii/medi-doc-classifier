@@ -208,11 +208,18 @@ with DAG(
         api_version="auto",
         auto_remove=True,
         command=[
-            "timeout", "300", 
-            "streamlit", "run", "/app/visuals.py",
-            "--server.port", "8501",
-            "--server.address", "0.0.0.0",
-            "--server.headless", "true"
+        "bash", "-c",
+        """
+        streamlit run /app/visuals.py \
+            --server.port 8501 \
+            --server.address 0.0.0.0 \
+            --server.headless true &
+        STREAMLIT_PID=$!
+        echo "Streamlit running at http://localhost:8501 for 5 minutes"
+        sleep 300
+        kill $STREAMLIT_PID 2>/dev/null || true
+        echo "Visualization complete"
+        """
         ],
         environment={
             "RESULTS_DSN": RESULTS_DSN,
