@@ -49,8 +49,9 @@ def load_data(run_id=None):
         
         class_query = """
             SELECT doc_id, source_file, predicted_type, dated, 
-                   needs_human_review, confidence_reasoning,
-                   model_version, created_at
+                needs_human_review, confidence_reasoning,
+                model_version, created_at,
+                ground_truth
             FROM classifications
             WHERE run_id = %s
         """
@@ -76,6 +77,37 @@ if not RESULTS_DSN:
 
 try:
     run_info, classifications, type_stats = load_data(RUN_ID)
+    df = pd.DataFrame(classifications) if classifications else pd.DataFrame()
+    
+    def normalize_label(x: str) -> str:
+        if not isinstance(x, str):
+            return ""
+        
+        xl = x.strip().lower()
+        if "sleep" in xl and "study" in xl:
+            return "Study Report"
+
+        mappings = {
+            "study report": "Study Report",
+            "delivery ticket": "Delivery Receipt",
+            "delivery receipt": "Delivery Receipt",
+            "order": "Orders",
+            "orders": "Orders",
+        }
+        
+        return mappings.get(xl, x.strip())
+
+    if not df.empty and "ground_truth" in df.columns:
+        df["gt_norm"] = df["ground_truth"].apply(normalize_label)
+        df["pred_norm"] = df["predicted_type"].apply(normalize_label)
+        
+        eval_mask = df["ground_truth"].notna() & df["predicted_type"].notna()
+        evaluated = df[eval_mask]
+        
+        accuracy = (evaluated["pred_norm"] == evaluated["gt_norm"]).mean() if len(evaluated) else None
+    else:
+        accuracy = None
+                
 except Exception as e:
     st.error(f"Database connection failed: {e}")
     st.info("Please check your database connection string and ensure the database is running.")
@@ -86,7 +118,7 @@ if not run_info:
     st.stop()
 
 st.header("Run Information")
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     st.metric("Run ID", run_info['run_id'][:16] + "...")
 with col2:
@@ -99,10 +131,11 @@ with col4:
         st.metric("Duration", f"{duration:.1f}s")
     else:
         st.metric("Duration", "Running...")
+with col5:
+    st.metric("Avg Accuracy", "—" if accuracy is None else f"{accuracy*100:.1f}%")
+         
 
-if classifications:
-    df = pd.DataFrame(classifications)
-    
+if classifications:    
     st.header("Summary Metrics")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -208,7 +241,7 @@ if classifications:
     if search:
         filtered_df = filtered_df[filtered_df['source_file'].str.contains(search, case=False, na=False)]
     
-    display_df = filtered_df[['doc_id', 'source_file', 'predicted_type', 'needs_human_review', 'confidence_reasoning']].copy()
+    display_df = filtered_df[['source_file', 'predicted_type', 'needs_human_review', 'confidence_reasoning']].copy()
     
     display_df['confidence_reasoning'] = display_df['confidence_reasoning'].apply(
         lambda x: x[:200] + '...' if x and len(x) > 200 else x
@@ -218,7 +251,6 @@ if classifications:
         display_df,
         use_container_width=True,
         column_config={
-            "doc_id": "Document ID",
             "source_file": "Source File",
             "predicted_type": "Type",
             "needs_human_review": "Needs Review",
