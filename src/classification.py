@@ -263,7 +263,8 @@ Orders Examples:
 - Header sections containing "Standard Order Written"
 - "Proc. Code Item Name/Narrative"
 - "Please fax a confirmation that you received this order"
-- Equipment request forms for medical devices
+- Equipment request forms for medical devices 
+- "EQUIPMENT/SERVICES"
 
 Study Report Examples:
 - Procedure of conducting study in detail - "PROCEDURE IN DETAIL: The patient underwent overnight home...'
@@ -374,7 +375,7 @@ CRITICAL REVIEW CHECKLIST:
 2. Presence of Progress Note or Pro Note most likely indicates it being a Physician Notes
 3. If there are questions asked like "after lunch?" or "usual sleep?" it is Physician Notes
 3. If a file is handwritten, contains dea # or cpap dme it is likely a Prescription 
-4. Presence of "Proc. Code: Item Name / Narrative" indicates an Order
+4. Presence of "Proc. Code: Item Name / Narrative" or "EQUIPMENT / SERVICES" indicates an Order
 
 COMMON MISCLASSIFICATION PATTERNS TO CATCH:
 - Compliance Report incorrectly labeled as "Study Report"
