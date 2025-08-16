@@ -93,6 +93,7 @@ services:
     build:
       context: ./streamlit
       dockerfile: Dockerfile
+    image: streamlit-viz:latest 
     container_name: streamlit-viz
     restart: unless-stopped
     environment:
@@ -103,8 +104,8 @@ services:
     depends_on:
       - results-db
     volumes:
-      - exec:/home/streamlit/.exec:ro
-      - ./streamlit/visuals.py:/app/visuals.py:ro
+      - exec:/home/streamlit/.exec
+      - ./streamlit/visuals.py:/app/visuals.py
 
 volumes:
   airflow_db_data:
