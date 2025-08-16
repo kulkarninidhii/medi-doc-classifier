@@ -1,4 +1,4 @@
-# Medical Document Classification Pipeline
+# ashvinai
 
 An automated pipeline for classifying medical documents using OCR, NLP, and LLM technologies. Built with Apache Airflow, Docker, and OpenAI GPT models.
 
