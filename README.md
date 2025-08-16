@@ -42,6 +42,8 @@ ashvinai/
 │   ├── requirements.txt          # Python dependencies
 │   └── Dockerfile                # Streamlit container
 ├── docker-compose.yaml           # Service orchestration
+├── Makefile                      # Build and setup automation
+├── DOCUMENTATION.md              # Detailed Documentation of the application
 ├── .env                          # Environment variables (create this)
 └── README.md                     # This file
 ```
@@ -68,62 +70,28 @@ git clone <repository-url>
 cd ashvinai
 ```
 
-### 2. Create Environment File
-
-Create `.env` file in the root directory:
+### 2. Build and Configure
 
 ```bash
-# Database Configuration
-RESULTS_DSN=postgresql+psycopg://results:results@results-db:5432/results
-
-# AWS Configuration
-S3_BUCKET=your-bucket-name
-S3_PREFIX=documents/input
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_DEFAULT_REGION=us-east-1
-S3_ENDPOINT_URL=  # Optional: for MinIO or S3-compatible services
-
-# OpenAI Configuration
-MODEL_NAME=gpt-4.1-mini  # Options: gpt-4.1, gpt-4.1-mini, gpt-5
-OPENAI_API_KEY=sk-your-api-key-here
-
-# Optional Configuration
-RUN_ID=  # Leave empty for auto-generation
+# Creates .exec directory and .env
+make build
 ```
 
-### 3. Create Required Directories
+### 3. Update Configuration
+
+Edit the .env file with your credentials:
+- Replace your-bucket-name with your S3 bucket
+- Add your AWS credentials
+- Add your OpenAI API key
+
+### 4. Start Service
 
 ```bash
-# Create execution volume mount point
-mkdir -p .exec
-chmod 755 .exec
+# Start all services
+make run
 ```
 
-### 4. Build Docker Images
-
-```bash
-# Build all services
-docker-compose build
-
-# Or build individually
-docker-compose build airflow
-docker-compose build docproc-image
-docker-compose build streamlit-viz
-```
-
-### 5. Start Services
-
-```bash
-# Start all services in detached mode
-docker-compose up -d
-
-# Check if services are running
-docker-compose ps
-
-```
-
-### 6. Access Services
+### 5. Access Services
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
