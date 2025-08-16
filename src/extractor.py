@@ -66,6 +66,18 @@ def normalize_text(s: str) -> str:
     s = re.sub(r"\n{3,}", "\n\n", s)
     return s.strip()
 
+def slugify_filename(name: str) -> str:
+    return re.sub(r'[<>:"/\\|?*]+', '_', name).strip()
+
+def unique_path(outdir: str, filename: str) -> str:
+    base, ext = os.path.splitext(filename)
+    candidate = os.path.join(outdir, filename)
+    i = 1
+    while os.path.exists(candidate):
+        candidate = os.path.join(outdir, f"{base}-{i}{ext}")
+        i += 1
+    return candidate
+
 def is_probably_scan(doc: fitz.Document, text: str) -> bool:
     """
     Trigger OCR if:
@@ -417,12 +429,12 @@ def process_pdf(input_path: str, outdir: str, ocr_lang: str = "eng",
         ocr_used = True
         
         if pages_count > 10:
-            actual_ocr_dpi = 450
+            actual_ocr_dpi = 350
             print(f"[info] Using reduced DPI {actual_ocr_dpi} for {pages_count} pages")
         else:
             actual_ocr_dpi = ocr_dpi
             
-        text_full, ocr_headings = ocr_pdf(input_path, dpi=ocr_dpi, lang=ocr_lang, psm=6)
+        text_full, ocr_headings = ocr_pdf(input_path, dpi=actual_ocr_dpi, lang=ocr_lang, psm=6)
         text_full = normalize_text(text_full)
         layout_pages = []  
         headings = ocr_headings
@@ -458,8 +470,12 @@ def process_pdf(input_path: str, outdir: str, ocr_lang: str = "eng",
     llm_payload = build_llm_payload(archive)
 
 
-    archive_path = os.path.join(outdir, f"{file_hash}.archive.json")
-    llm_path = os.path.join(outdir, f"{file_hash}.llm.json")
+    in_stem = os.path.splitext(os.path.basename(input_path))[0]
+    slug = slugify_filename(in_stem)
+
+    archive_path = unique_path(outdir, f"{slug}.archive.json")
+    llm_path = unique_path(outdir, f"{slug}.llm.json")
+
     with open(archive_path, "w", encoding="utf-8") as f:
         json.dump(archive, f, ensure_ascii=False, indent=2)
     with open(llm_path, "w", encoding="utf-8") as f:

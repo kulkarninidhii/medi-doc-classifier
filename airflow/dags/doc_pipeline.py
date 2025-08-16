@@ -169,6 +169,7 @@ with DAG(
                     rec.get("source_file"),
                     rec.get("predicted_type"),
                     rec.get("dated") or "",
+                    rec.get("ground_truth"),
                     bool(rec.get("needs_human_review", False)),
                     json.dumps(rec.get("key_facts", [])), 
                     (rec.get("confidence_reasoning", "") or "")[:4000],
@@ -182,9 +183,9 @@ with DAG(
             with conn.cursor() as cur:
                 cur.executemany("""
                     INSERT INTO classifications
-                    (doc_id, source_file, predicted_type, dated, needs_human_review,
+                    (doc_id, source_file, predicted_type, dated, ground_truth, needs_human_review,
                     key_facts, confidence_reasoning, model_version, run_id)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     ON CONFLICT (doc_id, model_version)
                     DO UPDATE SET
                     predicted_type = EXCLUDED.predicted_type,
@@ -208,11 +209,18 @@ with DAG(
         api_version="auto",
         auto_remove=True,
         command=[
-            "timeout", "300", 
-            "streamlit", "run", "/app/visuals.py",
-            "--server.port", "8501",
-            "--server.address", "0.0.0.0",
-            "--server.headless", "true"
+        "bash", "-c",
+        """
+        streamlit run /app/visuals.py \
+            --server.port 8501 \
+            --server.address 0.0.0.0 \
+            --server.headless true &
+        STREAMLIT_PID=$!
+        echo "Streamlit running at http://localhost:8501 for 5 minutes"
+        sleep 300
+        kill $STREAMLIT_PID 2>/dev/null || true
+        echo "Visualization complete"
+        """
         ],
         environment={
             "RESULTS_DSN": RESULTS_DSN,

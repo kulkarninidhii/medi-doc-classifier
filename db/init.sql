@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS classifications (
   model_version TEXT NOT NULL,
   run_id TEXT REFERENCES runs(run_id),
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  ground_truth TEXT NOT NULL,
   UNIQUE (doc_id, model_version)
 );
 
