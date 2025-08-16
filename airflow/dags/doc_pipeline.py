@@ -169,6 +169,7 @@ with DAG(
                     rec.get("source_file"),
                     rec.get("predicted_type"),
                     rec.get("dated") or "",
+                    rec.get("ground_truth"),
                     bool(rec.get("needs_human_review", False)),
                     json.dumps(rec.get("key_facts", [])), 
                     (rec.get("confidence_reasoning", "") or "")[:4000],
@@ -182,9 +183,9 @@ with DAG(
             with conn.cursor() as cur:
                 cur.executemany("""
                     INSERT INTO classifications
-                    (doc_id, source_file, predicted_type, dated, needs_human_review,
+                    (doc_id, source_file, predicted_type, dated, ground_truth, needs_human_review,
                     key_facts, confidence_reasoning, model_version, run_id)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     ON CONFLICT (doc_id, model_version)
                     DO UPDATE SET
                     predicted_type = EXCLUDED.predicted_type,
