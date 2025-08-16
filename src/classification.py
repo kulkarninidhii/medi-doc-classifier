@@ -536,7 +536,20 @@ def classify_with_validation(client: OpenAI, model: str, payload: Dict[str, Any]
 # =============================================================================
 def classify_payload(path: str, payload: Dict[str, Any], client: OpenAI, model: str) -> LLMResult:
     result = classify_with_validation(client, model, payload)
-    doc_id = payload.get("doc_id") or os.path.basename(path).split(".")[0]
+    src = (payload.get("source") or {}).get("filename")
+    if src:
+        base = os.path.splitext(src)[0]
+    else:
+        base = os.path.splitext(os.path.basename(path))[0]
+    
+    import re
+    base = re.sub(r'\.(llm|archive)\.json$', '', base, flags=re.I)
+    base = re.sub(r'\.(json|pdf|txt|llm)$', '', base, flags=re.I)
+
+    doc_id = base.strip()
+    
+    ground_truth = re.sub(r'[\s_\-]*\(?\d+\)?$', '', doc_id).strip()
+    
     return LLMResult(
         doc_id=doc_id,
         source_file=path,
@@ -546,7 +559,7 @@ def classify_payload(path: str, payload: Dict[str, Any], client: OpenAI, model: 
         key_facts=list(result.get("key_facts", [])),
         needs_human_review=bool(result.get("needs_human_review", False)),
         model=model,
-        raw_response=result,
+        raw_response={**result, "ground_truth": ground_truth},
     )
 
 def write_outputs(outdir: str, results: List[LLMResult]) -> Tuple[str, str]:
@@ -557,6 +570,7 @@ def write_outputs(outdir: str, results: List[LLMResult]) -> Tuple[str, str]:
             jf.write(json.dumps({
                 "doc_id": r.doc_id,
                 "source_file": r.source_file,
+                "ground_truth": r.raw_response.get("ground_truth", ""),
                 "predicted_type": r.predicted_type,
                 "dated": r.dated,
                 "confidence_reasoning": r.confidence_reasoning,
@@ -564,18 +578,6 @@ def write_outputs(outdir: str, results: List[LLMResult]) -> Tuple[str, str]:
                 "needs_human_review": r.needs_human_review,
                 "model": r.model
             }, ensure_ascii=False) + "\n")
-
-    try:
-        df = pd.DataFrame([{
-            "doc_id": r.doc_id,
-            "predicted_type": r.predicted_type,
-            "dated": r.dated,
-            "needs_human_review": r.needs_human_review,
-            "source_file": os.path.basename(r.source_file)
-        } for r in results])
-        print(df.head().to_string(index=False))
-    except Exception:
-        pass
 
     return jsonl_path
 
