@@ -1,4 +1,4 @@
-# ashvinai
+# medi-doc-classifier
 
 An automated pipeline for classifying medical documents using OCR, NLP, and LLM technologies. Built with Apache Airflow, Docker, and OpenAI GPT models.
 
@@ -25,7 +25,7 @@ This pipeline automatically processes PDF documents from S3, extracts text using
 ## 📁 Project Structure
 
 ```
-ashvinai/
+medi-doc-classifier/
 ├── airflow/
 │   ├── dags/
 │   │   └── doc_pipeline.py      # Main DAG definition
@@ -67,7 +67,7 @@ ashvinai/
 
 ```bash
 git clone <repository-url>
-cd ashvinai
+cd medi-doc-classifier
 ```
 
 ### 2. Build and Configure
