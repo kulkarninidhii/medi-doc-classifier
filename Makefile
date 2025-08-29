@@ -21,6 +21,7 @@ setup:
 		echo "# OpenAI Configuration" >> .env; \
 		echo "MODEL_NAME=gpt-4.1-mini" >> .env; \
 		echo "OPENAI_API_KEY=sk-your-api-key-here" >> .env; \
+        echo "FERNET_KEY=your-fernet-key" >> .env; \
 		echo "" >> .env; \
 		echo "✅ .env file created - please update with your credentials"; \
 	else \
