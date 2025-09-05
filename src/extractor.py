@@ -273,7 +273,7 @@ def pharmacy_cues(text: str) -> dict:
     cues = {c: (c in low) for c in PHARMACY_CUES}
     return {"present": any(cues.values()), "hits": [k for k, v in cues.items() if v]}
         
-def cheap_signals(text: str) -> Dict[str, Any]:
+def cheap_signals(text: str, headings: List[str] = None) -> Dict[str, Any]:
     s = text
     signals: Dict[str, Any] = {
         "page_headings": [],
@@ -286,8 +286,11 @@ def cheap_signals(text: str) -> Dict[str, Any]:
         "money": {"currency_candidates": [], "amounts": []},
     }
 
-    first_lines = [ln.strip() for ln in s.splitlines() if ln.strip()][:5]
-    signals["page_headings"] = first_lines
+    if headings:
+        signals["page_headings"] = headings[:10]
+    else:
+        first_lines = [ln.strip() for ln in s.splitlines() if ln.strip()][:5]
+        signals["page_headings"] = first_lines
 
     for label, pat in MED_KV_PATTERNS:
         for m in re.finditer(pat, s, flags=re.IGNORECASE):
@@ -441,7 +444,7 @@ def process_pdf(input_path: str, outdir: str, ocr_lang: str = "eng",
 
     duration_ms = int((time.time() - t0) * 1000)
 
-    signals = cheap_signals(text_full)
+    signals = cheap_signals(text_full, headings)
 
     archive = {
         "schema_version": "1.0",

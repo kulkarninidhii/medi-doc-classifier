@@ -216,8 +216,8 @@ with DAG(
             --server.address 0.0.0.0 \
             --server.headless true &
         STREAMLIT_PID=$!
-        echo "Streamlit running at http://localhost:8501 for 5 minutes"
-        sleep 300
+        echo "Streamlit running at http://localhost:8501"
+        sleep 10
         kill $STREAMLIT_PID 2>/dev/null || true
         echo "Visualization complete"
         """
